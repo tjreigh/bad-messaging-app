@@ -9,7 +9,9 @@ const addMessage = (message) => {
   const messageViewer = document.getElementById("message-viewer");
   messages.push(message);
   const newMessage = document.createElement("p");
-  newMessage.textContent = message;
+  const timestamp = new Date(message.timestamp);
+  const time = `on ${timestamp.toLocaleDateString()} at ${timestamp.toLocaleTimeString()}`
+  newMessage.textContent = `${time} ${message.username}: ${message.body}`;
   messageViewer.appendChild(newMessage);
 };
 
@@ -20,9 +22,17 @@ ready(() => {
   messageForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(event.target);
-    const message = formData.get("message");
+    const username = formData.get("username");
+    const messageBody = formData.get("message");
+
+    const message = {
+      username,
+      timestamp: Date.now(),
+      body: messageBody,
+    };
+
     addMessage(message);
-    socket.send(`sendMessage ${message}`);
+    socket.send(`sendMessage ${JSON.stringify(message)}`);
     console.log("sent");
   });
 
@@ -34,10 +44,11 @@ ready(() => {
   socket.addEventListener("message", (event) => {
     let msg = String(event.data);
     console.log(`Received: ${msg}`);
-    console.log(typeof msg);
 
     if (msg.startsWith("allMessages")) {
-      let messages = msg.split(" ", 2)[1].split(",");
+      let rawMessages = msg.substring(12);
+      console.log(rawMessages);
+      let messages = JSON.parse(rawMessages);
       console.log(messages);
 
       messages.forEach((message) => {

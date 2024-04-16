@@ -19,11 +19,12 @@ app.ws("/", function (ws, req) {
   ws.on("message", function (msg) {
     console.log(msg);
     if (msg.startsWith("getAllMessages")) {
-      ws.send(`allMessages ${messages}`);
+      ws.send(`allMessages [${messages}]`);
     } else if (msg.startsWith("sendMessage")) {
-      let message = msg.split(" ")[1];
+      let message = msg.split(" ").slice(1).join(" ");
+      let body = JSON.parse(message).body;
       messages.push(message);
-      ws.send("acknowledged")
+      ws.send(`acknowledged ${body}`);
     }
   });
   console.log("socket", req.testing);
