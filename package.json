@@ -1,7 +1,10 @@
 {
   "name": "good-messaging-app",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "repository": "git@github.com:tjreigh/bad-messaging-app.git",
   "author": "Trevor R <tjdoescode@gmail.com>",
   "license": "MIT",

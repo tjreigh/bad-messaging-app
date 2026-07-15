@@ -10,9 +10,16 @@ const {
 const app = express();
 const expressWs = require("express-ws")(app);
 
+const host = process.env.HOST || "127.0.0.1";
+const port = Number.parseInt(process.env.PORT || "3000", 10);
+
 const messages = [];
 
 app.use(express.static('public'));
+
+app.get("/health", function (req, res) {
+  res.json({ status: "ok" });
+});
 
 app.ws("/ws", function (ws, req) {
   ws.on("message", function (rawMsg) {
@@ -58,4 +65,6 @@ function broadcastEvent(event) {
   });
 }
 
-app.listen(3000);
+app.listen(port, host, function () {
+  console.log(`Bad Messaging App listening on http://${host}:${port}`);
+});
