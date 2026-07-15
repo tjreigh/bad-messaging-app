@@ -16,7 +16,8 @@ const addMessage = (message) => {
 };
 
 ready(() => {
-  const socket = new WebSocket("ws://localhost:3000");
+  const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
+  const socket = new WebSocket(`${wsProtocol}://${location.host}/ws`);
   const messageForm = document.getElementById("message-send-form");
 
   messageForm.addEventListener("submit", (event) => {
@@ -26,34 +27,37 @@ ready(() => {
     const messageBody = formData.get("message");
 
     const message = {
-      username,
-      timestamp: Date.now(),
-      body: messageBody,
+      type: "message:send",
+      message: {
+        username,
+        body: messageBody
+      }
     };
 
-    addMessage(message);
-    socket.send(`sendMessage ${JSON.stringify(message)}`);
+    // addMessage(message);
+    socket.send(JSON.stringify(message));
     console.log("sent");
   });
 
   socket.addEventListener("open", (event) => {
     console.log("Socket opened");
-    socket.send("getAllMessages");
+    socket.send(JSON.stringify({
+      type: "history:request"
+    }));
   });
 
   socket.addEventListener("message", (event) => {
-    let msg = String(event.data);
-    console.log(`Received: ${msg}`);
+    let msg = JSON.parse(event.data);
+    console.log(`Received: ${JSON.stringify(msg)}`);
 
-    if (msg.startsWith("allMessages")) {
-      let rawMessages = msg.substring(12);
-      console.log(rawMessages);
-      let messages = JSON.parse(rawMessages);
-      console.log(messages);
-
-      messages.forEach((message) => {
-        addMessage(message);
-      });
+    switch (msg.type) {
+      case "history":
+        msg.messages.forEach((message) => {
+          addMessage(message);
+        });
+        break;
+      case "message:new":
+        addMessage(msg.message)
     }
   });
 
