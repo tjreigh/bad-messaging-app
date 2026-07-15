@@ -1,4 +1,12 @@
 const express = require("express");
+const {
+  createErrorEvent,
+  createHistoryEvent,
+  createNewMessageEvent,
+  decodeClientEvent,
+  encodeEvent,
+} = require("./protocol");
+
 const app = express();
 const expressWs = require("express-ws")(app);
 
@@ -8,32 +16,26 @@ app.use(express.static('public'));
 
 app.ws("/ws", function (ws, req) {
   ws.on("message", function (rawMsg) {
-    const strMsg = String(rawMsg)
-    const msg = JSON.parse(strMsg);
-    console.log(msg)
-    switch (msg.type) {
+    const result = decodeClientEvent(rawMsg);
+
+    if (!result.ok) {
+      sendEvent(ws, createErrorEvent(result.error));
+      return;
+    }
+
+    const event = result.event;
+
+    switch (event.type) {
       case "message:send": {
-        const response = createNewMessageResponse(msg.message)
+        const response = createNewMessageEvent(event.message);
         messages.push(response.message);
 
-        const serializedResponse = JSON.stringify(response);
-        const clients = expressWs.getWss().clients
-
-        clients.forEach((client) => {
-          if (client.readyState == client.OPEN) {
-            client.send(serializedResponse);
-          }
-        });
+        broadcastEvent(response);
 
         break;
       }
       case "history:request": {
-        const body = {
-          type: "history",
-          messages: messages
-        }
-
-        ws.send(JSON.stringify(body));
+        sendEvent(ws, createHistoryEvent(messages));
 
         break;
       }
@@ -41,16 +43,19 @@ app.ws("/ws", function (ws, req) {
   });
 });
 
-function createNewMessageResponse(msg) {
-  const message = {
-    timestamp: Date.now(),
-    ...msg
-  }
-  const response = {
-    type: "message:new",
-    message
-  }
-  return response
+function sendEvent(ws, event) {
+  ws.send(encodeEvent(event));
+}
+
+function broadcastEvent(event) {
+  const serializedEvent = encodeEvent(event);
+  const clients = expressWs.getWss().clients;
+
+  clients.forEach((client) => {
+    if (client.readyState === client.OPEN) {
+      client.send(serializedEvent);
+    }
+  });
 }
 
 app.listen(3000);
