@@ -12,22 +12,36 @@ app.ws("/ws", function (ws, req) {
     const msg = JSON.parse(strMsg);
     console.log(msg)
     switch (msg.type) {
-      case "message:send":
-        doSendMessage(ws, msg.message)
+      case "message:send": {
+        const response = createNewMessageResponse(msg.message)
+        messages.push(response.message);
+
+        const serializedResponse = JSON.stringify(response);
+        const clients = expressWs.getWss().clients
+
+        clients.forEach((client) => {
+          if (client.readyState == client.OPEN) {
+            client.send(serializedResponse);
+          }
+        });
+
         break;
-      case "history:request":
-        let body = {
+      }
+      case "history:request": {
+        const body = {
           type: "history",
           messages: messages
         }
+
         ws.send(JSON.stringify(body));
+
         break;
+      }
     }
   });
 });
 
-function doSendMessage(ws, msg) {
-  messages.push(msg);
+function createNewMessageResponse(msg) {
   const message = {
     timestamp: Date.now(),
     ...msg
@@ -36,7 +50,7 @@ function doSendMessage(ws, msg) {
     type: "message:new",
     message
   }
-  ws.send(JSON.stringify(response));
+  return response
 }
 
 app.listen(3000);
