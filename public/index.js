@@ -34,8 +34,8 @@ ready(() => {
       }
     };
 
-    // addMessage(message);
     socket.send(JSON.stringify(message));
+    messageForm.reset();
     console.log("sent");
   });
 

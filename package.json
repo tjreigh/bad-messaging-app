@@ -5,6 +5,10 @@
   "repository": "git@github.com:tjreigh/bad-messaging-app.git",
   "author": "Trevor R <tjdoescode@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
   "dependencies": {
     "express": "^4.19.2",
     "express-ws": "^5.0.2"
