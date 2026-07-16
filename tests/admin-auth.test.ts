@@ -6,7 +6,7 @@ import {
   hashAdminPassword,
   verifyAdminPassword,
   verifyAdminSession,
-} from "./admin-auth";
+} from "../src/admin-auth";
 
 test("hashes and verifies an admin password", async () => {
   const hash = await hashAdminPassword("correct horse battery staple");

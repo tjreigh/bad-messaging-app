@@ -8,7 +8,7 @@ import { join } from "node:path";
 const databasePath = join(mkdtempSync(join(tmpdir(), "bma-db-")), "test.db");
 process.env.DATABASE_PATH = databasePath;
 
-const database = require("./database") as typeof import("./database");
+const database = require("../src/database") as typeof import("../src/database");
 const {
   createMessage,
   createRoom,
@@ -152,7 +152,7 @@ test("createRoom throws on a duplicate slug", () => {
 });
 
 test("generateRoomSlug produces valid distinct slugs", () => {
-  const { generateRoomSlug, isValidRoomSlug } = require("./slug") as typeof import("./slug");
+  const { generateRoomSlug, isValidRoomSlug } = require("../src/slug") as typeof import("../src/slug");
   const a = generateRoomSlug();
   const b = generateRoomSlug();
   assert.equal(isValidRoomSlug(a), true);

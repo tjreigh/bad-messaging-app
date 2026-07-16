@@ -8,7 +8,7 @@ import {
   createMessageDeletedEvent,
   createRoomClosedEvent,
   decodeClientEvent,
-} from "./protocol";
+} from "../src/protocol";
 
 test("decodes a history request", () => {
   const result = decodeClientEvent(JSON.stringify({ type: "history:request" }));

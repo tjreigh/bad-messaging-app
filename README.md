@@ -48,18 +48,6 @@ Suspiciously well-behaved, for a bad messaging app:
   audit record for every moderation action
 - Login throttling, CSRF and same-origin checks, strict CSP, versioned deploys
 
-## Development
-
-Requires Node.js 24 and Yarn.
-
-```sh
-yarn install
-yarn start
-```
-
-The server listens on `http://127.0.0.1:3000` by default. Database migrations
-run automatically when the application starts.`
-
 ## There is, regrettably, a moderator
 
 Even a disposable chat app needs a bouncer. There's an admin dashboard at
@@ -78,6 +66,28 @@ From the dashboard an admin can search and page through message history,
 delete messages, browse rooms with expiry times and message counts, filter
 messages to one room, and close a room — ejecting everyone in it on the spot,
 which is exactly as satisfying as it sounds.
+
+## Development
+
+Requires Node.js 24 and Yarn.
+
+```sh
+yarn install
+yarn start
+```
+
+The server listens on `http://127.0.0.1:3000` by default. Database migrations
+run automatically when the application starts.
+
+### Project layout
+
+- `src/` — TypeScript application and CLI source
+- `tests/` — unit and integration tests
+- `web/` — browser assets copied into the build output
+- `database/migrations/` — ordered SQLite migrations
+- `deploy/` — production process and proxy configuration
+- `scripts/` — build support scripts
+- `dist/` and `data/` — ignored generated and runtime state
 
 ## Commands
 

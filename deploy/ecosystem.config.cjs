@@ -1,9 +1,11 @@
+const { resolve } = require("node:path");
+
 module.exports = {
   apps: [
     {
       name: "bma",
-      script: "dist/server.js",
-      cwd: __dirname,
+      script: "dist/src/server.js",
+      cwd: resolve(__dirname, ".."),
       env: {
         NODE_ENV: "production",
         HOST: "127.0.0.1",

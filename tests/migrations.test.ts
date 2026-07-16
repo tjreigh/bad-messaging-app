@@ -5,9 +5,9 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { runMigrations } from "./migrations";
+import { runMigrations } from "../src/migrations";
 
-const migrationsDirectory = join(__dirname, "migrations");
+const migrationsDirectory = join(__dirname, "../src/migrations");
 const expectedMigrationFiles = readdirSync(migrationsDirectory)
   .filter((fileName) => fileName.endsWith(".sql"))
   .sort();

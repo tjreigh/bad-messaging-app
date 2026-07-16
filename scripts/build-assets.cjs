@@ -7,10 +7,10 @@ const {
 } = require("node:fs");
 const { join, resolve } = require("node:path");
 
-const sourceDirectory = resolve(__dirname, "../public");
-const outputDirectory = resolve(__dirname, "../dist/public");
-const migrationsSourceDirectory = resolve(__dirname, "../migrations");
-const migrationsOutputDirectory = resolve(__dirname, "../dist/migrations");
+const sourceDirectory = resolve(__dirname, "../web");
+const outputDirectory = resolve(__dirname, "../dist/src/public");
+const migrationsSourceDirectory = resolve(__dirname, "../database/migrations");
+const migrationsOutputDirectory = resolve(__dirname, "../dist/src/migrations");
 
 rmSync(outputDirectory, { recursive: true, force: true });
 cpSync(sourceDirectory, outputDirectory, { recursive: true });

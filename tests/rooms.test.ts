@@ -7,13 +7,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 
-import { hashAdminPassword } from "./admin-auth";
+import { hashAdminPassword } from "../src/admin-auth";
 
 const databasePath = join(mkdtempSync(join(tmpdir(), "bma-rooms-")), "test.db");
 process.env.DATABASE_PATH = databasePath;
 
-const { startServer } = require("./server") as typeof import("./server");
-const { getRoomBySlug } = require("./database") as typeof import("./database");
+const { startServer } = require("../src/server") as typeof import("../src/server");
+const { getRoomBySlug } = require("../src/database") as typeof import("../src/database");
 
 const adminPassword = "integration-test-password";
 let server: ReturnType<typeof startServer>;
