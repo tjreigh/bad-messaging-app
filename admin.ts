@@ -12,7 +12,14 @@ import {
   verifyAdminSession,
   type AdminSession,
 } from "./admin-auth";
-import { deleteMessage, listMessagesForAdmin } from "./database";
+import {
+  closeRoom,
+  deleteMessage,
+  getRoomById,
+  listMessagesForAdmin,
+  listRoomsForAdmin,
+} from "./database";
+import { hasSameOrigin } from "./http-utils";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
@@ -24,6 +31,11 @@ interface AdminConfig {
   sessionSecret: string;
 }
 
+interface AdminCallbacks {
+  onMessageDeleted?: (messageId: number, roomId: number) => void;
+  onRoomClosed?: (roomId: number) => void;
+}
+
 interface LoginAttempt {
   failures: number;
   resetAt: number;
@@ -32,8 +44,9 @@ interface LoginAttempt {
 const loginAttempts = new Map<string, LoginAttempt>();
 
 export function createAdminRouter(
-  onMessageDeleted: (messageId: number) => void = () => undefined,
+  callbacks: AdminCallbacks = {},
 ): express.Router {
+  const { onMessageDeleted, onRoomClosed } = callbacks;
   const router = express.Router();
   const config = loadAdminConfig();
   const secureCookies = process.env.NODE_ENV === "production";
@@ -135,9 +148,15 @@ export function createAdminRouter(
     (request, response) => {
       const before = parseOptionalPositiveInteger(request.query.before);
       const query = typeof request.query.q === "string" ? request.query.q : "";
+      const roomId = parseOptionalPositiveInteger(request.query.room);
 
       if (before === false) {
         response.status(400).json({ error: "Invalid pagination cursor" });
+        return;
+      }
+
+      if (roomId === false) {
+        response.status(400).json({ error: "Invalid room id" });
         return;
       }
 
@@ -150,6 +169,7 @@ export function createAdminRouter(
         50,
         before === null ? undefined : before,
         query,
+        roomId === null ? undefined : roomId,
       );
 
       response.json(page);
@@ -177,8 +197,69 @@ export function createAdminRouter(
         return;
       }
 
-      onMessageDeleted(deletedMessage.id);
+      onMessageDeleted?.(deletedMessage.id, deletedMessage.roomId);
       response.json({ deletedMessage });
+    },
+  );
+
+  router.get(
+    "/rooms",
+    requireConfigured,
+    requireSession,
+    (request, response) => {
+      const before = parseOptionalPositiveInteger(request.query.before);
+      const query = typeof request.query.q === "string" ? request.query.q : "";
+
+      if (before === false) {
+        response.status(400).json({ error: "Invalid pagination cursor" });
+        return;
+      }
+
+      if (query.length > 100) {
+        response.status(400).json({ error: "Search must be 100 characters or fewer" });
+        return;
+      }
+
+      const page = listRoomsForAdmin(
+        50,
+        before === null ? undefined : before,
+        query,
+      );
+
+      response.json(page);
+    },
+  );
+
+  router.delete(
+    "/rooms/:id",
+    requireConfigured,
+    requireSession,
+    requireAdminAction,
+    (request, response) => {
+      const roomId = Number(request.params.id);
+
+      if (!Number.isSafeInteger(roomId) || roomId <= 0) {
+        response.status(400).json({ error: "Invalid room id" });
+        return;
+      }
+
+      const session = response.locals.adminSession as AdminSession;
+      const closedRoom = closeRoom(roomId, session.username);
+
+      if (closedRoom === null) {
+        const existing = getRoomById(roomId);
+
+        if (existing === null) {
+          response.status(404).json({ error: "Room not found" });
+          return;
+        }
+
+        response.status(400).json({ error: "Permanent rooms cannot be closed" });
+        return;
+      }
+
+      onRoomClosed?.(roomId);
+      response.json({ closedRoom });
     },
   );
 
@@ -305,22 +386,6 @@ function requireSameOrigin(
   }
 
   next();
-}
-
-function hasSameOrigin(request: Request): boolean {
-  const origin = request.get("origin");
-  const host = request.get("host");
-  const protocol = request.protocol;
-
-  if (!origin || !host || !protocol) {
-    return false;
-  }
-
-  try {
-    return new URL(origin).origin === `${protocol}://${host}`;
-  } catch {
-    return false;
-  }
 }
 
 function parseOptionalPositiveInteger(

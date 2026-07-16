@@ -49,6 +49,59 @@
   justify-content: flex-end;
 }
 
+.admin-message__room {
+  font-size: 0.72rem;
+  opacity: 0.55;
+}
+
+.room-filter-note {
+  margin: 0 0 1rem;
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+.room-filter-note[hidden] {
+  display: none;
+}
+
+.room-filter-note__clear {
+  margin-left: 0.4rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--disconnected);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.admin-room {
+  padding: 1rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
+.admin-room__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: baseline;
+  font-size: 0.8rem;
+}
+
+.admin-room__meta time {
+  opacity: 0.58;
+}
+
+.admin-room__count {
+  opacity: 0.55;
+}
+
+.admin-room__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 #admin-status[data-state="error"] {
   color: var(--disconnected);
   opacity: 1;

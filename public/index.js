@@ -54,8 +54,22 @@ const addMessage = (message, prepend = false) => {
 };
 
 ready(() => {
+  const roomMatch = location.pathname.match(/^\/r\/([A-Za-z0-9_-]{8})$/);
+  const roomSlug = roomMatch ? roomMatch[1] : null;
+
+  const createRoomBar = document.getElementById("create-room-bar");
+  const createRoomButton = document.getElementById("create-room");
+  const messageSend = document.getElementById("message-send");
+
+  if (roomSlug === null) {
+    createRoomBar.hidden = false;
+  }
+
   const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
-  const socket = new WebSocket(`${wsProtocol}://${location.host}/ws`);
+  const wsUrl = roomSlug
+    ? `${wsProtocol}://${location.host}/ws?room=${roomSlug}`
+    : `${wsProtocol}://${location.host}/ws`;
+  const socket = new WebSocket(wsUrl);
   const messageForm = document.getElementById("message-send-form");
   const sendButton = messageForm.querySelector('button[type="submit"]');
   const usernameInput = document.getElementById("username");
@@ -66,6 +80,7 @@ ready(() => {
   let historyLoaded = false;
   let historyRequestPending = true;
   let nextHistoryCursor = null;
+  let roomClosed = false;
 
   try {
     const savedUsername = localStorage.getItem(USERNAME_STORAGE_KEY);
@@ -88,7 +103,7 @@ ready(() => {
   const setConnectionState = (state, label) => {
     connectionStatus.dataset.state = state;
     connectionStatus.textContent = label;
-    sendButton.disabled = state !== "connected";
+    sendButton.disabled = state !== "connected" || roomClosed;
     loadOlderButton.disabled = state !== "connected" || historyRequestPending;
   };
 
@@ -97,6 +112,42 @@ ready(() => {
     messageStatus.dataset.state = state;
     messageStatus.textContent = message;
   };
+
+  const markRoomClosed = () => {
+    if (roomClosed) {
+      return;
+    }
+
+    roomClosed = true;
+    setConnectionState("disconnected", "Room closed");
+    setMessageStatus("This room has been closed.", "error");
+    messageSend.hidden = true;
+    loadOlderButton.hidden = true;
+  };
+
+  createRoomButton.addEventListener("click", async () => {
+    createRoomButton.disabled = true;
+    createRoomButton.textContent = "Creating…";
+
+    try {
+      const response = await fetch("/api/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? `Could not create room (${response.status})`);
+      }
+
+      location.href = data.url;
+    } catch (error) {
+      createRoomButton.disabled = false;
+      createRoomButton.textContent = "create a room";
+      console.error("Could not create a room", error);
+    }
+  });
 
   loadOlderButton.addEventListener("click", () => {
     if (
@@ -169,7 +220,7 @@ ready(() => {
         historyRequestPending = false;
         nextHistoryCursor = msg.nextBefore ?? null;
         messageStatus.hidden = messages.length > 0 || msg.messages.length > 0;
-        loadOlderButton.hidden = nextHistoryCursor === null;
+        loadOlderButton.hidden = nextHistoryCursor === null || roomClosed;
         loadOlderButton.disabled = socket.readyState !== WebSocket.OPEN;
         loadOlderButton.textContent = "Load older messages";
 
@@ -199,6 +250,9 @@ ready(() => {
         }
         break;
       }
+      case "room:closed":
+        markRoomClosed();
+        break;
       case "error":
         console.error(`Server rejected a message: ${msg.message}`);
         break;
@@ -215,7 +269,12 @@ ready(() => {
     console.error(`Error in socket: ${event}`);
   });
 
-  socket.addEventListener("close", () => {
+  socket.addEventListener("close", (event) => {
+    if (event.code === 4004) {
+      markRoomClosed();
+      return;
+    }
+
     setConnectionState("disconnected", "Disconnected");
 
     if (!historyLoaded) {

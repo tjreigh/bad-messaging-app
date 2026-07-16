@@ -19,7 +19,8 @@ export type ServerEvent =
   | { type: "error"; message: string }
   | { type: "history"; messages: Message[]; nextBefore: number | null }
   | { type: "message:new"; message: Message }
-  | { type: "message:delete"; id: number };
+  | { type: "message:delete"; id: number }
+  | { type: "room:closed" };
 
 export type DecodeResult =
   | { ok: true; event: ClientEvent }
@@ -131,6 +132,10 @@ export function createMessageDeletedEvent(id: number): ServerEvent {
     type: "message:delete",
     id,
   };
+}
+
+export function createRoomClosedEvent(): ServerEvent {
+  return { type: "room:closed" };
 }
 
 export function createErrorEvent(message: string): ServerEvent {

@@ -6,6 +6,7 @@ import {
   MAX_USERNAME_LENGTH,
   createNewMessageEvent,
   createMessageDeletedEvent,
+  createRoomClosedEvent,
   decodeClientEvent,
 } from "./protocol";
 
@@ -135,4 +136,8 @@ test("constructs a message deletion event", () => {
     type: "message:delete",
     id: 7,
   });
+});
+
+test("constructs a room closed event", () => {
+  assert.deepEqual(createRoomClosedEvent(), { type: "room:closed" });
 });

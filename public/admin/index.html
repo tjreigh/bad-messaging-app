@@ -60,11 +60,32 @@
           <button id="logout" type="button">Sign out</button>
         </div>
 
+        <p id="message-filter-note" class="room-filter-note" role="status" hidden></p>
         <p id="message-result-status" class="message-status" role="status" aria-live="polite">
           Loading messages…
         </p>
         <div id="admin-message-list"></div>
         <button id="admin-load-older" class="load-older" type="button" hidden>
+          Older
+        </button>
+      </section>
+
+      <section id="rooms-panel" hidden>
+        <h2>Rooms</h2>
+        <div class="admin-toolbar">
+          <form id="room-search-form" role="search">
+            <label for="room-search">Search rooms</label>
+            <div class="admin-search-row">
+              <input id="room-search" name="q" type="search" maxlength="100" />
+              <button type="submit">Search</button>
+            </div>
+          </form>
+        </div>
+        <p id="room-result-status" class="message-status" role="status" aria-live="polite">
+          Loading rooms…
+        </p>
+        <div id="admin-room-list"></div>
+        <button id="admin-rooms-load-older" class="load-older" type="button" hidden>
           Older
         </button>
       </section>

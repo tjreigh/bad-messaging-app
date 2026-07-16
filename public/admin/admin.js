@@ -1,17 +1,29 @@
 const loginPanel = document.getElementById("login-panel");
 const loginForm = document.getElementById("login-form");
 const dashboard = document.getElementById("dashboard");
+const roomsPanel = document.getElementById("rooms-panel");
 const adminStatus = document.getElementById("admin-status");
 const searchForm = document.getElementById("search-form");
 const searchInput = document.getElementById("message-search");
+const messageFilterNote = document.getElementById("message-filter-note");
 const messageResultStatus = document.getElementById("message-result-status");
 const messageList = document.getElementById("admin-message-list");
 const loadOlderButton = document.getElementById("admin-load-older");
 const logoutButton = document.getElementById("logout");
 
+const roomSearchForm = document.getElementById("room-search-form");
+const roomSearchInput = document.getElementById("room-search");
+const roomResultStatus = document.getElementById("room-result-status");
+const roomList = document.getElementById("admin-room-list");
+const roomsLoadOlderButton = document.getElementById("admin-rooms-load-older");
+
 let csrfToken = null;
 let nextBefore = null;
 let currentQuery = "";
+let currentRoomFilter = null;
+
+let roomNextBefore = null;
+let currentRoomQuery = "";
 
 const setStatus = (message, error = false) => {
   adminStatus.textContent = message;
@@ -21,6 +33,7 @@ const setStatus = (message, error = false) => {
 const showLogin = (message = "Authentication required") => {
   csrfToken = null;
   dashboard.hidden = true;
+  roomsPanel.hidden = true;
   loginPanel.hidden = false;
   setStatus(message);
 };
@@ -29,6 +42,7 @@ const showDashboard = (session) => {
   csrfToken = session.csrfToken;
   loginPanel.hidden = true;
   dashboard.hidden = false;
+  roomsPanel.hidden = false;
   setStatus(`Signed in as ${session.username}`);
 };
 
@@ -54,10 +68,19 @@ const adminActionHeaders = () => ({
   "X-CSRF-Token": csrfToken
 });
 
+const formatTimestamp = (value) => {
+  if (value === null) {
+    return "never";
+  }
+
+  return new Date(value).toLocaleString();
+};
+
 const renderMessage = (message) => {
   const article = document.createElement("article");
   const header = document.createElement("header");
   const username = document.createElement("strong");
+  const roomTag = document.createElement("span");
   const time = document.createElement("time");
   const body = document.createElement("p");
   const actions = document.createElement("div");
@@ -69,6 +92,8 @@ const renderMessage = (message) => {
   header.className = "admin-message__meta";
   actions.className = "admin-message__actions";
   username.textContent = message.username;
+  roomTag.className = "admin-message__room";
+  roomTag.textContent = `#${message.roomSlug}`;
   time.dateTime = timestamp.toISOString();
   time.textContent = timestamp.toLocaleString();
   body.textContent = message.body;
@@ -95,11 +120,89 @@ const renderMessage = (message) => {
     }
   });
 
-  header.append(username, time);
+  header.append(username, roomTag, time);
   actions.appendChild(deleteButton);
   article.append(header, body, actions);
 
   return article;
+};
+
+const renderRoom = (room) => {
+  const article = document.createElement("article");
+  const header = document.createElement("header");
+  const slug = document.createElement("strong");
+  const meta = document.createElement("span");
+  const expiry = document.createElement("time");
+  const actions = document.createElement("div");
+  const viewMessagesButton = document.createElement("button");
+  const closeButton = document.createElement("button");
+
+  article.className = "admin-room";
+  article.dataset.roomId = String(room.id);
+  header.className = "admin-room__meta";
+  meta.className = "admin-room__count";
+  actions.className = "admin-room__actions";
+  slug.textContent = room.slug;
+
+  const isPermanent = room.expiresAt === null;
+  meta.textContent = `${room.messageCount} message${room.messageCount === 1 ? "" : "s"}`;
+  expiry.dateTime = room.expiresAt === null ? "" : new Date(room.expiresAt).toISOString();
+  expiry.textContent = isPermanent ? "permanent" : `expires ${formatTimestamp(room.expiresAt)}`;
+
+  viewMessagesButton.type = "button";
+  viewMessagesButton.textContent = "View messages";
+  viewMessagesButton.addEventListener("click", () => {
+    filterMessagesByRoom(room.id, room.slug);
+  });
+
+  closeButton.type = "button";
+  closeButton.textContent = "Close";
+  closeButton.disabled = isPermanent;
+  closeButton.title = isPermanent ? "Permanent rooms cannot be closed" : "";
+  closeButton.addEventListener("click", async () => {
+    if (!window.confirm(`Close room ${room.slug}? Messages will be deleted.`)) {
+      return;
+    }
+
+    closeButton.disabled = true;
+
+    try {
+      await request(`/api/admin/rooms/${room.id}`, {
+        method: "DELETE",
+        headers: adminActionHeaders()
+      });
+      article.remove();
+      setStatus(`Room ${room.slug} closed`);
+    } catch (error) {
+      closeButton.disabled = false;
+      handleRequestError(error);
+    }
+  });
+
+  header.append(slug, meta, expiry);
+  actions.append(viewMessagesButton, closeButton);
+  article.append(header, actions);
+
+  return article;
+};
+
+const filterMessagesByRoom = (roomId, slug) => {
+  currentRoomFilter = roomId;
+  messageFilterNote.innerHTML = "";
+  const label = document.createElement("span");
+  label.textContent = `Filtering messages by room #${slug} `;
+  const clearLink = document.createElement("button");
+  clearLink.type = "button";
+  clearLink.className = "room-filter-note__clear";
+  clearLink.textContent = "clear";
+  clearLink.addEventListener("click", () => {
+    currentRoomFilter = null;
+    messageFilterNote.hidden = true;
+    void loadMessages(true);
+  });
+  messageFilterNote.append(label, clearLink);
+  messageFilterNote.hidden = false;
+  void loadMessages(true);
 };
 
 const loadMessages = async (reset = false) => {
@@ -124,6 +227,10 @@ const loadMessages = async (reset = false) => {
     parameters.set("q", currentQuery);
   }
 
+  if (currentRoomFilter !== null) {
+    parameters.set("room", String(currentRoomFilter));
+  }
+
   try {
     const page = await request(`/api/admin/messages?${parameters}`);
 
@@ -141,6 +248,49 @@ const loadMessages = async (reset = false) => {
     }
   } catch (error) {
     messageResultStatus.hidden = true;
+    handleRequestError(error);
+  }
+};
+
+const loadRooms = async (reset = false) => {
+  if (reset) {
+    roomNextBefore = null;
+    roomList.replaceChildren();
+  }
+
+  roomResultStatus.hidden = false;
+  roomResultStatus.textContent = reset
+    ? "Loading rooms…"
+    : "Loading older rooms…";
+  roomsLoadOlderButton.disabled = true;
+
+  const parameters = new URLSearchParams();
+
+  if (!reset && roomNextBefore !== null) {
+    parameters.set("before", String(roomNextBefore));
+  }
+
+  if (currentRoomQuery !== "") {
+    parameters.set("q", currentRoomQuery);
+  }
+
+  try {
+    const page = await request(`/api/admin/rooms?${parameters}`);
+
+    page.rooms.forEach((room) => {
+      roomList.appendChild(renderRoom(room));
+    });
+
+    roomNextBefore = page.nextBefore ?? null;
+    roomsLoadOlderButton.hidden = roomNextBefore === null;
+    roomsLoadOlderButton.disabled = false;
+    roomResultStatus.hidden = roomList.children.length > 0;
+
+    if (roomList.children.length === 0) {
+      roomResultStatus.textContent = "No rooms";
+    }
+  } catch (error) {
+    roomResultStatus.hidden = true;
     handleRequestError(error);
   }
 };
@@ -174,7 +324,8 @@ loginForm.addEventListener("submit", async (event) => {
 
     loginForm.reset();
     showDashboard(session);
-    await loadMessages(true);
+    void loadMessages(true);
+    void loadRooms(true);
   } catch (error) {
     handleRequestError(error);
   } finally {
@@ -188,9 +339,21 @@ searchForm.addEventListener("submit", (event) => {
   void loadMessages(true);
 });
 
+roomSearchForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  currentRoomQuery = roomSearchInput.value.trim();
+  void loadRooms(true);
+});
+
 loadOlderButton.addEventListener("click", () => {
   if (nextBefore !== null) {
     void loadMessages(false);
+  }
+});
+
+roomsLoadOlderButton.addEventListener("click", () => {
+  if (roomNextBefore !== null) {
+    void loadRooms(false);
   }
 });
 
@@ -215,6 +378,7 @@ const initialize = async () => {
     const session = await request("/api/admin/session");
     showDashboard(session);
     await loadMessages(true);
+    await loadRooms(true);
   } catch (error) {
     if (error.status === 401) {
       showLogin();
@@ -223,6 +387,7 @@ const initialize = async () => {
 
     loginPanel.hidden = true;
     dashboard.hidden = true;
+    roomsPanel.hidden = true;
     setStatus(error.message, true);
   }
 };

@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { runMigrations } from "./migrations";
 
 const migrationsDirectory = join(__dirname, "migrations");
+const expectedMigrationFiles = readdirSync(migrationsDirectory)
+  .filter((fileName) => fileName.endsWith(".sql"))
+  .sort();
 
 function createTempMigrationDirectory(): string {
   return mkdtempSync(join(tmpdir(), "bma-migrations-"));
@@ -34,16 +37,10 @@ test("creates the full schema on a fresh database", () => {
 
   const applied = runMigrations(database, migrationsDirectory);
 
-  assert.deepEqual(applied, [
-    "001_create_messages.sql",
-    "002_create_moderation_actions.sql",
-  ]);
+  assert.deepEqual(applied, expectedMigrationFiles);
   assert.equal(tableExists(database, "messages"), true);
   assert.equal(tableExists(database, "moderation_actions"), true);
-  assert.deepEqual(appliedFilenames(database), [
-    "001_create_messages.sql",
-    "002_create_moderation_actions.sql",
-  ]);
+  assert.deepEqual(appliedFilenames(database), expectedMigrationFiles);
 });
 
 test("upgrades a legacy database without a schema_migrations table", () => {
@@ -68,14 +65,8 @@ test("upgrades a legacy database without a schema_migrations table", () => {
   const applied = runMigrations(database, migrationsDirectory);
 
   // 001/002 are idempotent (IF NOT EXISTS): re-executed as no-ops and recorded.
-  assert.deepEqual(applied, [
-    "001_create_messages.sql",
-    "002_create_moderation_actions.sql",
-  ]);
-  assert.deepEqual(appliedFilenames(database), [
-    "001_create_messages.sql",
-    "002_create_moderation_actions.sql",
-  ]);
+  assert.deepEqual(applied, expectedMigrationFiles);
+  assert.deepEqual(appliedFilenames(database), expectedMigrationFiles);
 
   // Existing rows survive the re-run.
   const row = database
