@@ -11,11 +11,25 @@ const sourceDirectory = resolve(__dirname, "../web");
 const outputDirectory = resolve(__dirname, "../dist/src/public");
 const migrationsSourceDirectory = resolve(__dirname, "../database/migrations");
 const migrationsOutputDirectory = resolve(__dirname, "../dist/src/migrations");
+const serverEntrypoint = resolve(__dirname, "../dist/server.js");
 
 rmSync(outputDirectory, { recursive: true, force: true });
 cpSync(sourceDirectory, outputDirectory, { recursive: true });
 rmSync(migrationsOutputDirectory, { recursive: true, force: true });
 cpSync(migrationsSourceDirectory, migrationsOutputDirectory, { recursive: true });
+writeFileSync(
+  serverEntrypoint,
+  `"use strict";
+
+const { startServer } = require("./src/server.js");
+
+module.exports = { startServer };
+
+if (require.main === module) {
+  startServer();
+}
+`,
+);
 
 const indexPath = join(outputDirectory, "index.html");
 let indexHtml = readFileSync(indexPath, "utf8");

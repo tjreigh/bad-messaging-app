@@ -4,7 +4,7 @@ module.exports = {
   apps: [
     {
       name: "bma",
-      script: "dist/src/server.js",
+      script: "dist/server.js",
       cwd: resolve(__dirname, ".."),
       env: {
         NODE_ENV: "production",
