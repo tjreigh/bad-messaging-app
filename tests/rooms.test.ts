@@ -13,7 +13,8 @@ const databasePath = join(mkdtempSync(join(tmpdir(), "bma-rooms-")), "test.db");
 process.env.DATABASE_PATH = databasePath;
 
 const { startServer } = require("../src/server") as typeof import("../src/server");
-const { getRoomBySlug } = require("../src/database") as typeof import("../src/database");
+const database = require("../src/database") as typeof import("../src/database");
+const { createMessage, getRoomBySlug } = database;
 
 const adminPassword = "integration-test-password";
 let server: ReturnType<typeof startServer>;
@@ -146,6 +147,43 @@ test("messages broadcast only within their room", async () => {
 
   wsA.close();
   wsB.close();
+});
+
+test("a reconnecting client can recover messages sent while offline", async () => {
+  const { body } = await createRoomViaApi();
+  const room = getRoomBySlug(body.slug);
+  assert.ok(room !== null);
+
+  const port = (server.address() as AddressInfo).port;
+  const firstSocket = new WebSocket(
+    `ws://127.0.0.1:${port}/ws?room=${body.slug}`,
+  );
+  await once(firstSocket, "open");
+
+  const closed = once(firstSocket, "close");
+  firstSocket.close();
+  await closed;
+
+  const missedMessage = createMessage(
+    { username: "Reconnect", body: "sent while offline" },
+    room!.id,
+  );
+  const secondSocket = new WebSocket(
+    `ws://127.0.0.1:${port}/ws?room=${body.slug}`,
+  );
+  await once(secondSocket, "open");
+
+  const history = waitForMessage(
+    secondSocket,
+    (message) => (message as { type?: string }).type === "history",
+  );
+  secondSocket.send(JSON.stringify({ type: "history:request" }));
+
+  const event = await history as {
+    messages: Array<{ id: number }>;
+  };
+  assert.ok(event.messages.some((message) => message.id === missedMessage.id));
+  secondSocket.close();
 });
 
 test("connecting to an expired room closes with code 4004", async () => {

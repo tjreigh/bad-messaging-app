@@ -36,6 +36,7 @@ const ROOM_CREATION_MAX_KEYS = 1_000;
 const MESSAGE_LIMIT = 10;
 const MESSAGE_WINDOW_MS = 10_000;
 const EXPIRATION_SWEEP_INTERVAL_MS = 60_000;
+const WEBSOCKET_HEARTBEAT_INTERVAL_MS = 30_000;
 const ROOM_UNAVAILABLE_CLOSE_CODE = 4004;
 
 export function startServer(
@@ -48,6 +49,7 @@ export function startServer(
   app.set("trust proxy", "loopback");
 
   const roomConnections = new Map<number, Set<WebSocket>>();
+  const socketLiveness = new WeakMap<WebSocket, boolean>();
   const roomCreationLimiter = createRateLimiter({
     max: ROOM_CREATION_LIMIT,
     windowMs: ROOM_CREATION_WINDOW_MS,
@@ -221,6 +223,10 @@ export function startServer(
     }
 
     sockets.add(ws);
+    socketLiveness.set(ws, true);
+    ws.on("pong", () => {
+      socketLiveness.set(ws, true);
+    });
   }
 
   function removeConnection(roomId: number, ws: WebSocket): void {
@@ -281,6 +287,25 @@ export function startServer(
     }
   }, EXPIRATION_SWEEP_INTERVAL_MS);
   sweep.unref();
+
+  const heartbeat = setInterval(() => {
+    for (const sockets of roomConnections.values()) {
+      for (const ws of sockets) {
+        if (ws.readyState !== ws.OPEN) {
+          continue;
+        }
+
+        if (socketLiveness.get(ws) === false) {
+          ws.terminate();
+          continue;
+        }
+
+        socketLiveness.set(ws, false);
+        ws.ping();
+      }
+    }
+  }, WEBSOCKET_HEARTBEAT_INTERVAL_MS);
+  heartbeat.unref();
 
   return app.listen(port, host, () => {
     console.log(`Bad Messaging App listening on http://${host}:${port}`);

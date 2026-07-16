@@ -6,6 +6,8 @@ const ready = (callback) => {
 let messages = [];
 const messageIds = new Set();
 const USERNAME_STORAGE_KEY = "bad-messaging-app:username";
+const RECONNECT_BASE_DELAY_MS = 1000;
+const RECONNECT_MAX_DELAY_MS = 30000;
 
 const messageTimeFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -69,7 +71,6 @@ ready(() => {
   const wsUrl = roomSlug
     ? `${wsProtocol}://${location.host}/ws?room=${roomSlug}`
     : `${wsProtocol}://${location.host}/ws`;
-  const socket = new WebSocket(wsUrl);
   const messageForm = document.getElementById("message-send-form");
   const sendButton = messageForm.querySelector('button[type="submit"]');
   const usernameInput = document.getElementById("username");
@@ -79,8 +80,12 @@ ready(() => {
   const loadOlderButton = document.getElementById("load-older");
   let historyLoaded = false;
   let historyRequestPending = true;
+  let historyRequestKind = "initial";
   let nextHistoryCursor = null;
   let roomClosed = false;
+  let socket = null;
+  let reconnectTimer = null;
+  let reconnectAttempts = 0;
 
   try {
     const savedUsername = localStorage.getItem(USERNAME_STORAGE_KEY);
@@ -151,7 +156,7 @@ ready(() => {
 
   loadOlderButton.addEventListener("click", () => {
     if (
-      socket.readyState !== WebSocket.OPEN ||
+      socket?.readyState !== WebSocket.OPEN ||
       historyRequestPending ||
       nextHistoryCursor === null
     ) {
@@ -159,6 +164,7 @@ ready(() => {
     }
 
     historyRequestPending = true;
+    historyRequestKind = "older";
     loadOlderButton.disabled = true;
     loadOlderButton.textContent = "Loading older messages…";
     socket.send(JSON.stringify({
@@ -170,7 +176,7 @@ ready(() => {
   messageForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    if (socket.readyState !== WebSocket.OPEN) {
+    if (socket?.readyState !== WebSocket.OPEN) {
       setConnectionState("disconnected", "Not connected");
       return;
     }
@@ -197,88 +203,188 @@ ready(() => {
     }
   });
 
-  socket.addEventListener("open", () => {
-    setConnectionState("connected", "Connected");
-    socket.send(JSON.stringify({
-      type: "history:request"
-    }));
-  });
+  const scheduleReconnect = () => {
+    if (roomClosed || reconnectTimer !== null) {
+      return;
+    }
 
-  socket.addEventListener("message", (event) => {
-    let msg;
+    const baseDelay = Math.min(
+      RECONNECT_BASE_DELAY_MS * 2 ** reconnectAttempts,
+      RECONNECT_MAX_DELAY_MS
+    );
+    const jitter = Math.floor(Math.random() * baseDelay * 0.2);
+    const delay = baseDelay + jitter;
+    reconnectAttempts += 1;
+
+    setConnectionState("connecting", "Reconnecting…");
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = null;
+      connect();
+    }, delay);
+  };
+
+  const connect = () => {
+    if (
+      roomClosed ||
+      socket?.readyState === WebSocket.OPEN ||
+      socket?.readyState === WebSocket.CONNECTING
+    ) {
+      return;
+    }
+
+    setConnectionState("connecting", reconnectAttempts === 0
+      ? "Connecting…"
+      : "Reconnecting…");
+
+    let currentSocket;
 
     try {
-      msg = JSON.parse(event.data);
+      currentSocket = new WebSocket(wsUrl);
+      socket = currentSocket;
     } catch (error) {
-      console.error("Received an invalid server message", error);
+      console.error("Could not open the WebSocket", error);
+      scheduleReconnect();
       return;
     }
 
-    switch (msg.type) {
-      case "history":
-        historyLoaded = true;
-        historyRequestPending = false;
-        nextHistoryCursor = msg.nextBefore ?? null;
-        messageStatus.hidden = messages.length > 0 || msg.messages.length > 0;
-        loadOlderButton.hidden = nextHistoryCursor === null || roomClosed;
-        loadOlderButton.disabled = socket.readyState !== WebSocket.OPEN;
-        loadOlderButton.textContent = "Load older messages";
-
-        if (messages.length === 0 && msg.messages.length === 0) {
-          setMessageStatus("No messages yet. Suspiciously quiet.", "empty");
-        }
-
-        msg.messages.forEach((message) => {
-          addMessage(message);
-        });
-        break;
-      case "message:new":
-        messageStatus.hidden = true;
-        addMessage(msg.message, true);
-        break;
-      case "message:delete": {
-        const deletedMessage = document.querySelector(
-          `.message[data-message-id="${msg.id}"]`
-        );
-
-        deletedMessage?.remove();
-        messageIds.delete(msg.id);
-        messages = messages.filter((message) => message.id !== msg.id);
-
-        if (messages.length === 0) {
-          setMessageStatus("No messages yet. Suspiciously quiet.", "empty");
-        }
-        break;
+    currentSocket.addEventListener("open", () => {
+      if (socket !== currentSocket) {
+        return;
       }
-      case "room:closed":
+
+      reconnectAttempts = 0;
+      historyRequestPending = true;
+      historyRequestKind = historyLoaded ? "refresh" : "initial";
+      setConnectionState("connected", "Connected");
+      currentSocket.send(JSON.stringify({
+        type: "history:request"
+      }));
+    });
+
+    currentSocket.addEventListener("message", (event) => {
+      if (socket !== currentSocket) {
+        return;
+      }
+
+      let msg;
+
+      try {
+        msg = JSON.parse(event.data);
+      } catch (error) {
+        console.error("Received an invalid server message", error);
+        return;
+      }
+
+      switch (msg.type) {
+        case "history": {
+          const isRefresh = historyRequestKind === "refresh";
+          historyLoaded = true;
+          historyRequestPending = false;
+
+          if (!isRefresh) {
+            nextHistoryCursor = msg.nextBefore ?? null;
+          }
+
+          messageStatus.hidden = messages.length > 0 || msg.messages.length > 0;
+          loadOlderButton.hidden = nextHistoryCursor === null || roomClosed;
+          loadOlderButton.disabled = currentSocket.readyState !== WebSocket.OPEN;
+          loadOlderButton.textContent = "Load older messages";
+
+          if (messages.length === 0 && msg.messages.length === 0) {
+            setMessageStatus("No messages yet. Suspiciously quiet.", "empty");
+          }
+
+          const historyMessages = isRefresh
+            ? [...msg.messages].reverse()
+            : msg.messages;
+
+          historyMessages.forEach((message) => {
+            addMessage(message, isRefresh);
+          });
+          break;
+        }
+        case "message:new":
+          messageStatus.hidden = true;
+          addMessage(msg.message, true);
+          break;
+        case "message:delete": {
+          const deletedMessage = document.querySelector(
+            `.message[data-message-id="${msg.id}"]`
+          );
+
+          deletedMessage?.remove();
+          messageIds.delete(msg.id);
+          messages = messages.filter((message) => message.id !== msg.id);
+
+          if (messages.length === 0) {
+            setMessageStatus("No messages yet. Suspiciously quiet.", "empty");
+          }
+          break;
+        }
+        case "room:closed":
+          markRoomClosed();
+          break;
+        case "error":
+          console.error(`Server rejected a message: ${msg.message}`);
+          break;
+      }
+    });
+
+    currentSocket.addEventListener("error", (event) => {
+      if (socket !== currentSocket) {
+        return;
+      }
+
+      setConnectionState("disconnected", "Connection error");
+
+      if (!historyLoaded) {
+        setMessageStatus("Messages could not be loaded.", "error");
+      }
+
+      console.error("WebSocket error", event);
+    });
+
+    currentSocket.addEventListener("close", (event) => {
+      if (socket !== currentSocket) {
+        return;
+      }
+
+      socket = null;
+      historyRequestPending = false;
+
+      console.warn("WebSocket closed", {
+        code: event.code,
+        reason: event.reason || "No reason supplied",
+        wasClean: event.wasClean
+      });
+
+      if (event.code === 4004) {
         markRoomClosed();
-        break;
-      case "error":
-        console.error(`Server rejected a message: ${msg.message}`);
-        break;
+        return;
+      }
+
+      if (!historyLoaded) {
+        setMessageStatus("Messages could not be loaded while disconnected.", "error");
+      }
+
+      scheduleReconnect();
+    });
+  };
+
+  window.addEventListener("online", () => {
+    if (reconnectTimer !== null) {
+      window.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+
+    connect();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      connect();
     }
   });
 
-  socket.addEventListener("error", (event) => {
-    setConnectionState("disconnected", "Connection error");
-
-    if (!historyLoaded) {
-      setMessageStatus("Messages could not be loaded.", "error");
-    }
-
-    console.error(`Error in socket: ${event}`);
-  });
-
-  socket.addEventListener("close", (event) => {
-    if (event.code === 4004) {
-      markRoomClosed();
-      return;
-    }
-
-    setConnectionState("disconnected", "Disconnected");
-
-    if (!historyLoaded) {
-      setMessageStatus("Messages could not be loaded while disconnected.", "error");
-    }
-  });
+  connect();
 });
