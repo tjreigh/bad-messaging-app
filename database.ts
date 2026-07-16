@@ -1,15 +1,16 @@
 import { DatabaseSync, type SQLOutputValue } from "node:sqlite";
-import { mkdirSync, readFileSync, readdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import type { Message, MessageInput } from "./protocol";
+import { runMigrations } from "./migrations";
 
 const databasePath =
   process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "messages.db");
 
 mkdirSync(path.dirname(databasePath), { recursive: true });
 const database = new DatabaseSync(databasePath);
-runMigrations();
+runMigrations(database, path.join(__dirname, "migrations"));
 
 const insertMessage = database.prepare(`
   INSERT INTO messages (username, body, created_at)
@@ -163,21 +164,6 @@ export function deleteMessage(id: number, moderator: string): Message | null {
   }
 
   return message;
-}
-
-function runMigrations(): void {
-  const migrationsDirectory = path.join(__dirname, "migrations");
-  const migrationFiles = readdirSync(migrationsDirectory)
-    .filter((fileName) => fileName.endsWith(".sql"))
-    .sort();
-
-  for (const migrationFile of migrationFiles) {
-    const sql = readFileSync(
-      path.join(migrationsDirectory, migrationFile),
-      "utf8",
-    );
-    database.exec(sql);
-  }
 }
 
 function toMessage(
