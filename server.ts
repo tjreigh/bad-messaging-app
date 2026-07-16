@@ -14,8 +14,14 @@ import {
 
 const expressWsInstance = expressWs(express());
 const app = expressWsInstance.app;
+const host = process.env.HOST ?? "127.0.0.1";
+const port = Number.parseInt(process.env.PORT ?? "3000", 10);
 
 app.use(express.static("public"));
+
+app.get("/health", (_request, response) => {
+  response.json({ status: "ok" });
+});
 
 app.ws("/ws", (ws) => {
   ws.on("message", (rawMessage) => {
@@ -58,4 +64,6 @@ function broadcastEvent(event: ServerEvent): void {
   });
 }
 
-app.listen(3000);
+app.listen(port, host, () => {
+  console.log(`Bad Messaging App listening on http://${host}:${port}`);
+});
