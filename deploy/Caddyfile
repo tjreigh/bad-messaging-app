@@ -3,6 +3,7 @@ bma.tjreigh.mobi {
 	encode zstd gzip
 
 	header {
+		Content-Security-Policy "default-src 'self'; connect-src 'self' wss://bma.tjreigh.mobi; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Admin / Bad Messaging App</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/admin/admin.css" />
+    <script src="/admin/admin.js" defer></script>
+  </head>
+
+  <body>
+    <header class="app-header">
+      <p class="app-header__label">ADMINISTRATION</p>
+      <h1>Bad Messaging App</h1>
+      <p id="admin-status" class="app-header__tagline" role="status" aria-live="polite">
+        Checking access…
+      </p>
+    </header>
+
+    <main class="admin-main">
+      <section id="login-panel" hidden>
+        <h2>Sign in</h2>
+        <form id="login-form">
+          <div class="form-field">
+            <label for="admin-username">Username</label>
+            <input
+              id="admin-username"
+              name="username"
+              type="text"
+              autocomplete="username"
+              required
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="admin-password">Password</label>
+            <input
+              id="admin-password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+
+          <button type="submit">Sign in</button>
+        </form>
+      </section>
+
+      <section id="dashboard" hidden>
+        <div class="admin-toolbar">
+          <form id="search-form" role="search">
+            <label for="message-search">Search messages</label>
+            <div class="admin-search-row">
+              <input id="message-search" name="q" type="search" maxlength="100" />
+              <button type="submit">Search</button>
+            </div>
+          </form>
+          <button id="logout" type="button">Sign out</button>
+        </div>
+
+        <p id="message-result-status" class="message-status" role="status" aria-live="polite">
+          Loading messages…
+        </p>
+        <div id="admin-message-list"></div>
+        <button id="admin-load-older" class="load-older" type="button" hidden>
+          Older
+        </button>
+      </section>
+    </main>
+  </body>
+</html>

@@ -6,10 +6,11 @@
   "author": "Trevor R <tjdoescode@gmail.com>",
   "license": "MIT",
   "scripts": {
+    "admin:credentials": "yarn build && node dist/admin-credentials.js",
     "build": "tsc && node scripts/build-public.cjs",
     "prestart": "yarn build",
     "start": "node dist/server.js",
-    "test": "yarn build && node --test dist/protocol.test.js"
+    "test": "yarn build && node --test dist/*.test.js"
   },
   "dependencies": {
     "express": "^4.19.2",

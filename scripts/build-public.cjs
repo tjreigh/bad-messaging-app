@@ -9,9 +9,13 @@ const { join, resolve } = require("node:path");
 
 const sourceDirectory = resolve(__dirname, "../public");
 const outputDirectory = resolve(__dirname, "../dist/public");
+const migrationsSourceDirectory = resolve(__dirname, "../migrations");
+const migrationsOutputDirectory = resolve(__dirname, "../dist/migrations");
 
 rmSync(outputDirectory, { recursive: true, force: true });
 cpSync(sourceDirectory, outputDirectory, { recursive: true });
+rmSync(migrationsOutputDirectory, { recursive: true, force: true });
+cpSync(migrationsSourceDirectory, migrationsOutputDirectory, { recursive: true });
 
 const indexPath = join(outputDirectory, "index.html");
 let indexHtml = readFileSync(indexPath, "utf8");

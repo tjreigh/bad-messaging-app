@@ -5,6 +5,7 @@ import {
   MAX_BODY_LENGTH,
   MAX_USERNAME_LENGTH,
   createNewMessageEvent,
+  createMessageDeletedEvent,
   decodeClientEvent,
 } from "./protocol";
 
@@ -126,5 +127,12 @@ test("constructs a trusted message without copying extra fields", () => {
       body: "Hello",
       timestamp: 12345,
     },
+  });
+});
+
+test("constructs a message deletion event", () => {
+  assert.deepEqual(createMessageDeletedEvent(7), {
+    type: "message:delete",
+    id: 7,
   });
 });

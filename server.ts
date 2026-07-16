@@ -3,10 +3,12 @@ import expressWs from "express-ws";
 import { join } from "node:path";
 import type { WebSocket } from "ws";
 
+import { createAdminRouter } from "./admin";
 import { createMessage, listRecentMessages } from "./database";
 import {
   createErrorEvent,
   createHistoryEvent,
+  createMessageDeletedEvent,
   createNewMessageEvent,
   decodeClientEvent,
   encodeEvent,
@@ -18,6 +20,10 @@ const app = expressWsInstance.app;
 const host = process.env.HOST ?? "127.0.0.1";
 const port = Number.parseInt(process.env.PORT ?? "3000", 10);
 
+app.set("trust proxy", "loopback");
+app.use("/api/admin", createAdminRouter((messageId) => {
+  broadcastEvent(createMessageDeletedEvent(messageId));
+}));
 app.use(express.static(join(__dirname, "public")));
 
 app.get("/health", (_request, response) => {

@@ -18,7 +18,8 @@ export type ClientEvent =
 export type ServerEvent =
   | { type: "error"; message: string }
   | { type: "history"; messages: Message[]; nextBefore: number | null }
-  | { type: "message:new"; message: Message };
+  | { type: "message:new"; message: Message }
+  | { type: "message:delete"; id: number };
 
 export type DecodeResult =
   | { ok: true; event: ClientEvent }
@@ -122,6 +123,13 @@ export function createNewMessageEvent(message: Message): ServerEvent {
       body: message.body,
       timestamp: message.timestamp,
     },
+  };
+}
+
+export function createMessageDeletedEvent(id: number): ServerEvent {
+  return {
+    type: "message:delete",
+    id,
   };
 }
 

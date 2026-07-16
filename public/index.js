@@ -31,6 +31,7 @@ const addMessage = (message, prepend = false) => {
   const timestamp = new Date(message.timestamp);
 
   newMessage.className = "message";
+  newMessage.dataset.messageId = String(message.id);
   messageMeta.className = "message__meta";
   username.className = "message__username";
   time.className = "message__time";
@@ -184,6 +185,20 @@ ready(() => {
         messageStatus.hidden = true;
         addMessage(msg.message, true);
         break;
+      case "message:delete": {
+        const deletedMessage = document.querySelector(
+          `.message[data-message-id="${msg.id}"]`
+        );
+
+        deletedMessage?.remove();
+        messageIds.delete(msg.id);
+        messages = messages.filter((message) => message.id !== msg.id);
+
+        if (messages.length === 0) {
+          setMessageStatus("No messages yet. Suspiciously quiet.", "empty");
+        }
+        break;
+      }
       case "error":
         console.error(`Server rejected a message: ${msg.message}`);
         break;
