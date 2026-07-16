@@ -16,7 +16,7 @@
     </header>
 
     <div id="message-send">
-      <h2>Send Message</h2>
+      <h2 class="send-heading">Send Mes<span class="send-heading__leaning">s</span><span class="send-heading__fallen">age</span></h2>
       <form id="message-send-form">
         <div class="form-field">
           <label for="username">Username</label>
@@ -31,8 +31,8 @@
         <button type="submit">Send it</button>
       </form>
     </div>
-    <span id="message-viewer">
-      <h2>Messages (unfortunately)</h2>
-    </span>
+    <section id="message-viewer" aria-labelledby="messages-heading">
+      <h2 id="messages-heading">Messages <span class="messages-heading__aside">(unfortunately)</span></h2>
+    </section>
   </body>
 </html>

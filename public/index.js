@@ -5,13 +5,38 @@ const ready = (callback) => {
 
 let messages = [];
 
+const messageTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit"
+});
+
 const addMessage = (message) => {
   const messageViewer = document.getElementById("message-viewer");
   messages.push(message);
-  const newMessage = document.createElement("p");
+
+  const newMessage = document.createElement("article");
+  const messageMeta = document.createElement("header");
+  const username = document.createElement("span");
+  const time = document.createElement("time");
+  const body = document.createElement("p");
   const timestamp = new Date(message.timestamp);
-  const time = `on ${timestamp.toLocaleDateString()} at ${timestamp.toLocaleTimeString()}`
-  newMessage.textContent = `${time} ${message.username}: ${message.body}`;
+
+  newMessage.className = "message";
+  messageMeta.className = "message__meta";
+  username.className = "message__username";
+  time.className = "message__time";
+  body.className = "message__body";
+
+  username.textContent = message.username;
+  time.dateTime = timestamp.toISOString();
+  time.textContent = messageTimeFormatter.format(timestamp);
+  time.title = timestamp.toLocaleString();
+  body.textContent = message.body;
+
+  messageMeta.append(username, time);
+  newMessage.append(messageMeta, body);
   messageViewer.appendChild(newMessage);
 };
 
