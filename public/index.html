@@ -16,7 +16,18 @@
     </header>
 
     <div id="message-send">
-      <h2 class="send-heading">Send Mes<span class="send-heading__leaning">s</span><span class="send-heading__fallen">age</span></h2>
+      <div class="send-heading-row">
+        <h2 class="send-heading">Send Mes<span class="send-heading__leaning">s</span><span class="send-heading__fallen">age</span></h2>
+        <p
+          id="connection-status"
+          class="connection-status"
+          data-state="connecting"
+          role="status"
+          aria-live="polite"
+        >
+          Connecting…
+        </p>
+      </div>
       <form id="message-send-form">
         <div class="form-field">
           <label for="username">Username</label>
@@ -28,11 +39,24 @@
           <textarea id="message" name="message" rows="5"></textarea>
         </div>
 
-        <button type="submit">Send it</button>
+        <button type="submit" disabled>Send it</button>
       </form>
     </div>
     <section id="message-viewer" aria-labelledby="messages-heading">
       <h2 id="messages-heading">Messages <span class="messages-heading__aside">(unfortunately)</span></h2>
+      <p
+        id="message-status"
+        class="message-status"
+        data-state="loading"
+        role="status"
+        aria-live="polite"
+      >
+        Loading messages…
+      </p>
+      <div id="message-list"></div>
+      <button id="load-older" class="load-older" type="button" hidden>
+        Load older messages
+      </button>
     </section>
   </body>
 </html>

@@ -43,7 +43,8 @@ app.ws("/ws", (ws) => {
       }
 
       case "history:request": {
-        sendEvent(ws, createHistoryEvent(listRecentMessages(50)));
+        const page = listRecentMessages(25, event.before);
+        sendEvent(ws, createHistoryEvent(page.messages, page.nextBefore));
         break;
       }
     }

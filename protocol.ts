@@ -12,12 +12,12 @@ export interface Message extends MessageInput {
 }
 
 export type ClientEvent =
-  | { type: "history:request" }
+  | { type: "history:request"; before?: number }
   | { type: "message:send"; message: MessageInput };
 
 export type ServerEvent =
   | { type: "error"; message: string }
-  | { type: "history"; messages: Message[] }
+  | { type: "history"; messages: Message[]; nextBefore: number | null }
   | { type: "message:new"; message: Message };
 
 export type DecodeResult =
@@ -39,7 +39,7 @@ export function decodeClientEvent(rawData: unknown): DecodeResult {
 
   switch (event.type) {
     case "history:request":
-      return valid({ type: "history:request" });
+      return decodeHistoryRequest(event);
 
     case "message:send":
       return decodeMessageSend(event.message);
@@ -47,6 +47,21 @@ export function decodeClientEvent(rawData: unknown): DecodeResult {
     default:
       return invalid(`Unknown message type: ${event.type}`);
   }
+}
+
+function decodeHistoryRequest(event: Record<string, unknown>): DecodeResult {
+  if (event.before === undefined) {
+    return valid({ type: "history:request" });
+  }
+
+  if (!Number.isSafeInteger(event.before) || Number(event.before) <= 0) {
+    return invalid("History cursor must be a positive integer");
+  }
+
+  return valid({
+    type: "history:request",
+    before: Number(event.before),
+  });
 }
 
 function decodeMessageSend(message: unknown): DecodeResult {
@@ -87,10 +102,14 @@ function decodeMessageSend(message: unknown): DecodeResult {
   });
 }
 
-export function createHistoryEvent(messages: Message[]): ServerEvent {
+export function createHistoryEvent(
+  messages: Message[],
+  nextBefore: number | null,
+): ServerEvent {
   return {
     type: "history",
     messages,
+    nextBefore,
   };
 }
 

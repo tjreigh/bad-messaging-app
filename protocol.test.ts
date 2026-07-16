@@ -17,6 +17,27 @@ test("decodes a history request", () => {
   });
 });
 
+test("decodes a paginated history request", () => {
+  const result = decodeClientEvent(
+    JSON.stringify({ type: "history:request", before: 42 }),
+  );
+
+  assert.deepEqual(result, {
+    ok: true,
+    event: { type: "history:request", before: 42 },
+  });
+});
+
+for (const before of [0, -1, 1.5, "42", null]) {
+  test(`rejects an invalid history cursor: ${String(before)}`, () => {
+    const result = decodeClientEvent(
+      JSON.stringify({ type: "history:request", before }),
+    );
+
+    assert.equal(result.ok, false);
+  });
+}
+
 test("decodes and trims a message", () => {
   const result = decodeClientEvent(
     JSON.stringify({

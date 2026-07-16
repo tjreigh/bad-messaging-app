@@ -21,14 +21,39 @@ const selectRecentMessages = database.prepare(`
   LIMIT ?
 `);
 
+const selectMessagesBefore = database.prepare(`
+  SELECT id, username, body, created_at AS timestamp
+  FROM messages
+  WHERE id < ?
+  ORDER BY id DESC
+  LIMIT ?
+`);
+
+export interface MessagePage {
+  messages: Message[];
+  nextBefore: number | null;
+}
+
 export function createMessage({ username, body }: MessageInput): Message {
   const row = insertMessage.get(username, body, Date.now());
 
   return toMessage(row);
 }
 
-export function listRecentMessages(limit = 50): Message[] {
-  return selectRecentMessages.all(limit).map(toMessage).reverse();
+export function listRecentMessages(
+  limit = 25,
+  before?: number,
+): MessagePage {
+  const rows = before === undefined
+    ? selectRecentMessages.all(limit + 1)
+    : selectMessagesBefore.all(before, limit + 1);
+  const messages = rows.slice(0, limit).map(toMessage);
+  const hasMore = rows.length > limit;
+
+  return {
+    messages,
+    nextBefore: hasMore ? messages[messages.length - 1].id : null,
+  };
 }
 
 function toMessage(

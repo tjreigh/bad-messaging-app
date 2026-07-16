@@ -2,6 +2,8 @@
   --ink: #171717;
   --paper: #f4f1e8;
   --warning: #e6ff3f;
+  --connected: #26733d;
+  --disconnected: #a4392f;
 }
 
 * {
@@ -49,9 +51,46 @@ body {
   opacity: 0.7;
 }
 
+.send-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.35rem;
+}
+
 .send-heading {
-  margin: 0 0 1.35rem;
+  margin: 0;
   line-height: 1;
+}
+
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid currentColor;
+  color: color-mix(in srgb, var(--ink) 62%, transparent);
+  font-size: 0.65rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.connection-status::before {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.connection-status[data-state="connected"] {
+  color: var(--connected);
+}
+
+.connection-status[data-state="disconnected"] {
+  color: var(--disconnected);
 }
 
 .send-heading__leaning,
@@ -88,6 +127,33 @@ body {
 
 #message-viewer h2 {
   margin: 0 0 1rem;
+}
+
+.message-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1.25rem 0;
+  color: color-mix(in srgb, var(--ink) 62%, transparent);
+  font-size: 0.78rem;
+}
+
+.message-status[hidden] {
+  display: none;
+}
+
+.message-status[data-state="loading"]::before {
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  content: "";
+  animation: loading-spin 700ms linear infinite;
+}
+
+.message-status[data-state="error"] {
+  color: var(--disconnected);
 }
 
 .message {
@@ -133,6 +199,15 @@ body {
   white-space: pre-wrap;
 }
 
+.load-older {
+  display: block;
+  margin: 1.25rem auto 0;
+}
+
+.load-older[hidden] {
+  display: none;
+}
+
 @keyframes age-falls-off {
   0%,
   35% {
@@ -159,9 +234,16 @@ body {
   }
 }
 
+@keyframes loading-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .send-heading__leaning,
-  .send-heading__fallen {
+  .send-heading__fallen,
+  .message-status[data-state="loading"]::before {
     animation: none;
   }
 }
@@ -171,7 +253,18 @@ form {
   gap: 1rem;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .form-field {
   display: grid;
   gap: 0.35rem;
+}
+
+@media (max-width: 30rem) {
+  .send-heading-row {
+    flex-direction: column;
+  }
 }

@@ -4,6 +4,8 @@ const ready = (callback) => {
 };
 
 let messages = [];
+const messageIds = new Set();
+const USERNAME_STORAGE_KEY = "bad-messaging-app:username";
 
 const messageTimeFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -12,8 +14,13 @@ const messageTimeFormatter = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit"
 });
 
-const addMessage = (message) => {
-  const messageViewer = document.getElementById("message-viewer");
+const addMessage = (message, prepend = false) => {
+  if (messageIds.has(message.id)) {
+    return;
+  }
+
+  const messageList = document.getElementById("message-list");
+  messageIds.add(message.id);
   messages.push(message);
 
   const newMessage = document.createElement("article");
@@ -37,16 +44,85 @@ const addMessage = (message) => {
 
   messageMeta.append(username, time);
   newMessage.append(messageMeta, body);
-  messageViewer.appendChild(newMessage);
+
+  if (prepend) {
+    messageList.prepend(newMessage);
+  } else {
+    messageList.appendChild(newMessage);
+  }
 };
 
 ready(() => {
   const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${wsProtocol}://${location.host}/ws`);
   const messageForm = document.getElementById("message-send-form");
+  const sendButton = messageForm.querySelector('button[type="submit"]');
+  const usernameInput = document.getElementById("username");
+  const messageInput = document.getElementById("message");
+  const connectionStatus = document.getElementById("connection-status");
+  const messageStatus = document.getElementById("message-status");
+  const loadOlderButton = document.getElementById("load-older");
+  let historyLoaded = false;
+  let historyRequestPending = true;
+  let nextHistoryCursor = null;
+
+  try {
+    const savedUsername = localStorage.getItem(USERNAME_STORAGE_KEY);
+
+    if (savedUsername !== null) {
+      usernameInput.value = savedUsername;
+    }
+  } catch (error) {
+    console.error("Could not load the saved username", error);
+  }
+
+  usernameInput.addEventListener("input", () => {
+    try {
+      localStorage.setItem(USERNAME_STORAGE_KEY, usernameInput.value);
+    } catch (error) {
+      console.error("Could not save the username", error);
+    }
+  });
+
+  const setConnectionState = (state, label) => {
+    connectionStatus.dataset.state = state;
+    connectionStatus.textContent = label;
+    sendButton.disabled = state !== "connected";
+    loadOlderButton.disabled = state !== "connected" || historyRequestPending;
+  };
+
+  const setMessageStatus = (message, state) => {
+    messageStatus.hidden = false;
+    messageStatus.dataset.state = state;
+    messageStatus.textContent = message;
+  };
+
+  loadOlderButton.addEventListener("click", () => {
+    if (
+      socket.readyState !== WebSocket.OPEN ||
+      historyRequestPending ||
+      nextHistoryCursor === null
+    ) {
+      return;
+    }
+
+    historyRequestPending = true;
+    loadOlderButton.disabled = true;
+    loadOlderButton.textContent = "Loading older messages…";
+    socket.send(JSON.stringify({
+      type: "history:request",
+      before: nextHistoryCursor
+    }));
+  });
 
   messageForm.addEventListener("submit", (event) => {
     event.preventDefault();
+
+    if (socket.readyState !== WebSocket.OPEN) {
+      setConnectionState("disconnected", "Not connected");
+      return;
+    }
+
     const formData = new FormData(event.target);
     const username = formData.get("username");
     const messageBody = formData.get("message");
@@ -59,38 +135,76 @@ ready(() => {
       }
     };
 
-    socket.send(JSON.stringify(message));
-    messageForm.reset();
-    console.log("sent");
+    try {
+      socket.send(JSON.stringify(message));
+      messageInput.value = "";
+      messageInput.focus();
+    } catch (error) {
+      setConnectionState("disconnected", "Not connected");
+      console.error("Could not send message", error);
+    }
   });
 
-  socket.addEventListener("open", (event) => {
-    console.log("Socket opened");
+  socket.addEventListener("open", () => {
+    setConnectionState("connected", "Connected");
     socket.send(JSON.stringify({
       type: "history:request"
     }));
   });
 
   socket.addEventListener("message", (event) => {
-    let msg = JSON.parse(event.data);
-    console.log(`Received: ${JSON.stringify(msg)}`);
+    let msg;
+
+    try {
+      msg = JSON.parse(event.data);
+    } catch (error) {
+      console.error("Received an invalid server message", error);
+      return;
+    }
 
     switch (msg.type) {
       case "history":
+        historyLoaded = true;
+        historyRequestPending = false;
+        nextHistoryCursor = msg.nextBefore ?? null;
+        messageStatus.hidden = messages.length > 0 || msg.messages.length > 0;
+        loadOlderButton.hidden = nextHistoryCursor === null;
+        loadOlderButton.disabled = socket.readyState !== WebSocket.OPEN;
+        loadOlderButton.textContent = "Load older messages";
+
+        if (messages.length === 0 && msg.messages.length === 0) {
+          setMessageStatus("No messages yet. Suspiciously quiet.", "empty");
+        }
+
         msg.messages.forEach((message) => {
           addMessage(message);
         });
         break;
       case "message:new":
-        addMessage(msg.message)
+        messageStatus.hidden = true;
+        addMessage(msg.message, true);
+        break;
+      case "error":
+        console.error(`Server rejected a message: ${msg.message}`);
+        break;
     }
   });
 
   socket.addEventListener("error", (event) => {
+    setConnectionState("disconnected", "Connection error");
+
+    if (!historyLoaded) {
+      setMessageStatus("Messages could not be loaded.", "error");
+    }
+
     console.error(`Error in socket: ${event}`);
   });
 
   socket.addEventListener("close", () => {
-    console.log("Socket closed");
+    setConnectionState("disconnected", "Disconnected");
+
+    if (!historyLoaded) {
+      setMessageStatus("Messages could not be loaded while disconnected.", "error");
+    }
   });
 });
