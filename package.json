@@ -1,19 +1,29 @@
 {
   "name": "good-messaging-app",
   "version": "1.0.0",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
+  "main": "dist/server.js",
   "repository": "git@github.com:tjreigh/bad-messaging-app.git",
   "author": "Trevor R <tjdoescode@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test"
+    "build": "tsc",
+    "prestart": "yarn build",
+    "start": "node dist/server.js",
+    "test": "yarn build && node --test dist/protocol.test.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "express-ws": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/express": "4",
+    "@types/express-ws": "^3.0.6",
+    "@types/node": "24",
+    "@types/ws": "^8.18.1",
+    "typescript": "^7.0.2"
+  },
+  "resolutions": {
+    "@types/express": "^4.17.25",
+    "@types/express-serve-static-core": "^4.19.9"
   }
 }

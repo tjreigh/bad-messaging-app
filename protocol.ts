@@ -1,8 +1,31 @@
-const MAX_USERNAME_LENGTH = 32;
-const MAX_BODY_LENGTH = 500;
+export const MAX_USERNAME_LENGTH = 32;
+export const MAX_BODY_LENGTH = 500;
 
-function decodeClientEvent(rawData) {
-  let event;
+export interface MessageInput {
+  username: string;
+  body: string;
+}
+
+export interface Message extends MessageInput {
+  id: number;
+  timestamp: number;
+}
+
+export type ClientEvent =
+  | { type: "history:request" }
+  | { type: "message:send"; message: MessageInput };
+
+export type ServerEvent =
+  | { type: "error"; message: string }
+  | { type: "history"; messages: Message[] }
+  | { type: "message:new"; message: Message };
+
+export type DecodeResult =
+  | { ok: true; event: ClientEvent }
+  | { ok: false; error: string };
+
+export function decodeClientEvent(rawData: unknown): DecodeResult {
+  let event: unknown;
 
   try {
     event = JSON.parse(String(rawData));
@@ -26,7 +49,7 @@ function decodeClientEvent(rawData) {
   }
 }
 
-function decodeMessageSend(message) {
+function decodeMessageSend(message: unknown): DecodeResult {
   if (!isObject(message)) {
     return invalid("Message payload is required");
   }
@@ -64,53 +87,44 @@ function decodeMessageSend(message) {
   });
 }
 
-function createHistoryEvent(messages) {
+export function createHistoryEvent(messages: Message[]): ServerEvent {
   return {
     type: "history",
     messages,
   };
 }
 
-function createNewMessageEvent(message, timestamp = Date.now()) {
+export function createNewMessageEvent(message: Message): ServerEvent {
   return {
     type: "message:new",
     message: {
+      id: message.id,
       username: message.username,
       body: message.body,
-      timestamp,
+      timestamp: message.timestamp,
     },
   };
 }
 
-function createErrorEvent(message) {
+export function createErrorEvent(message: string): ServerEvent {
   return {
     type: "error",
     message,
   };
 }
 
-function encodeEvent(event) {
+export function encodeEvent(event: ServerEvent): string {
   return JSON.stringify(event);
 }
 
-function isObject(value) {
+function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function valid(event) {
+function valid(event: ClientEvent): DecodeResult {
   return { ok: true, event };
 }
 
-function invalid(error) {
+function invalid(error: string): DecodeResult {
   return { ok: false, error };
 }
-
-module.exports = {
-  MAX_BODY_LENGTH,
-  MAX_USERNAME_LENGTH,
-  createErrorEvent,
-  createHistoryEvent,
-  createNewMessageEvent,
-  decodeClientEvent,
-  encodeEvent,
-};
