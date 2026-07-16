@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "bad-messaging-app",
+      name: "bma",
       script: "dist/server.js",
       cwd: __dirname,
       env: {

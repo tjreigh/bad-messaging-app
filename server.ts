@@ -1,5 +1,6 @@
 import express from "express";
 import expressWs from "express-ws";
+import { join } from "node:path";
 import type { WebSocket } from "ws";
 
 import { createMessage, listRecentMessages } from "./database";
@@ -17,7 +18,7 @@ const app = expressWsInstance.app;
 const host = process.env.HOST ?? "127.0.0.1";
 const port = Number.parseInt(process.env.PORT ?? "3000", 10);
 
-app.use(express.static("public"));
+app.use(express.static(join(__dirname, "public")));
 
 app.get("/health", (_request, response) => {
   response.json({ status: "ok" });
