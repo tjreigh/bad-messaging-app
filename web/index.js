@@ -6,8 +6,20 @@ const ready = (callback) => {
 let messages = [];
 const messageIds = new Set();
 const USERNAME_STORAGE_KEY = "bad-messaging-app:username";
+const VISITED_STORAGE_KEY = "bad-messaging-app:visited";
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
+const TILT_REPLAY_CLICKS = 5;
+const TILT_REPLAY_WINDOW_MS = 600;
+
+try {
+  if (localStorage.getItem(VISITED_STORAGE_KEY) === null) {
+    document.documentElement.classList.add("first-visit");
+    localStorage.setItem(VISITED_STORAGE_KEY, "1");
+  }
+} catch (error) {
+  console.error("Could not check first-visit state", error);
+}
 
 const messageTimeFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -62,6 +74,26 @@ ready(() => {
   const createRoomBar = document.getElementById("create-room-bar");
   const createRoomButton = document.getElementById("create-room");
   const messageSend = document.getElementById("message-send");
+  const appHeaderLabel = document.querySelector(".app-header__label");
+  let tiltReplayClicks = 0;
+  let tiltReplayLastClick = 0;
+
+  appHeaderLabel?.addEventListener("click", () => {
+    const now = Date.now();
+
+    tiltReplayClicks =
+      now - tiltReplayLastClick > TILT_REPLAY_WINDOW_MS ? 1 : tiltReplayClicks + 1;
+    tiltReplayLastClick = now;
+
+    if (tiltReplayClicks < TILT_REPLAY_CLICKS) {
+      return;
+    }
+
+    tiltReplayClicks = 0;
+    document.documentElement.classList.remove("first-visit");
+    void document.documentElement.offsetWidth;
+    document.documentElement.classList.add("first-visit");
+  });
 
   if (roomSlug === null) {
     createRoomBar.hidden = false;

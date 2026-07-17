@@ -34,6 +34,8 @@ body {
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.1em;
+  --tilt: 2deg;
+  transform: rotate(var(--tilt));
 }
 
 .app-header h1 {
@@ -43,6 +45,8 @@ body {
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.05em;
+  --tilt: -1.2deg;
+  transform: rotate(var(--tilt));
 }
 
 .app-header__tagline {
@@ -260,10 +264,49 @@ body {
   }
 }
 
+@keyframes settle-tilt {
+  from {
+    transform: rotate(0);
+  }
+
+  65% {
+    transform: rotate(calc(var(--tilt) * 1.8));
+  }
+
+  to {
+    transform: rotate(var(--tilt));
+  }
+}
+
+.first-visit .app-header__label {
+  animation: settle-tilt 500ms cubic-bezier(0.2, 0.8, 0.35, 1.2) 300ms both;
+}
+
+.first-visit .app-header h1 {
+  animation: settle-tilt 550ms cubic-bezier(0.2, 0.8, 0.35, 1.2) 450ms both;
+}
+
+.first-visit .form-field:nth-of-type(1) {
+  animation: settle-tilt 500ms cubic-bezier(0.2, 0.8, 0.35, 1.2) 700ms both;
+}
+
+.first-visit .form-field:nth-of-type(2) {
+  animation: settle-tilt 500ms cubic-bezier(0.2, 0.8, 0.35, 1.2) 850ms both;
+}
+
+.first-visit #message-send-form button[type="submit"] {
+  animation: settle-tilt 500ms cubic-bezier(0.2, 0.8, 0.35, 1.2) 1000ms both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .send-heading__leaning,
   .send-heading__fallen,
-  .message-status[data-state="loading"]::before {
+  .message-status[data-state="loading"]::before,
+  .first-visit .app-header__label,
+  .first-visit .app-header h1,
+  .first-visit .form-field:nth-of-type(1),
+  .first-visit .form-field:nth-of-type(2),
+  .first-visit #message-send-form button[type="submit"] {
     animation: none;
   }
 }
@@ -281,6 +324,22 @@ button:disabled {
 .form-field {
   display: grid;
   gap: 0.35rem;
+}
+
+.form-field:nth-of-type(1) {
+  --tilt: 0.9deg;
+  transform: rotate(var(--tilt));
+}
+
+.form-field:nth-of-type(2) {
+  --tilt: -0.8deg;
+  transform: rotate(var(--tilt));
+}
+
+#message-send-form button[type="submit"] {
+  --tilt: 1.4deg;
+  justify-self: start;
+  transform: rotate(var(--tilt));
 }
 
 @media (max-width: 30rem) {
